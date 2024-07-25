@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -8,7 +8,12 @@ import {
   StatusBar,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Camera, CameraType } from 'react-native-camera-kit';
+import {
+  Camera,
+  useCameraDevice,
+  CameraDevice,
+  useCodeScanner,
+} from 'react-native-vision-camera';
 import {
   request,
   check,
@@ -27,6 +32,7 @@ interface QRScannerProps {
 
 const Scanner: React.FC<QRScannerProps> = ({ onRead, onClose }) => {
   const { Colors } = useTheme();
+  const camera = useRef<Camera>(null);
   const [hasCameraPermission, setHasCameraPermission] = useState(false);
   const { t } = useTranslation(['home', 'common']);
 
@@ -135,11 +141,27 @@ const Scanner: React.FC<QRScannerProps> = ({ onRead, onClose }) => {
     })();
   }, []);
 
-  const handleQRRead = (event: any) => {
-    console.log(event.nativeEvent.codeStringValue);
-    onRead?.(event.nativeEvent.codeStringValue);
+  const handleQRRead = (code: string | undefined) => {
+    if (!code) {
+      return;
+    }
+    console.log(code);
+    onRead?.(code);
     onClose?.();
   };
+
+  const cameraDevice = useCameraDevice('back') as CameraDevice;
+
+  const codeScanner = useCodeScanner({
+    codeTypes: ['qr'],
+    onCodeScanned: (codes) => {
+      for (const code of codes) {
+        console.log(code);
+        handleQRRead(code.value);
+      }
+      console.log(`Scanned ${codes.length} codes!`);
+    },
+  });
 
   return (
     <View style={styles.container}>
@@ -149,14 +171,11 @@ const Scanner: React.FC<QRScannerProps> = ({ onRead, onClose }) => {
       </TouchableOpacity>
       {hasCameraPermission ? (
         <Camera
+          ref={camera}
           style={styles.camera}
-          cameraType={CameraType.Back}
-          flashMode="auto"
-          scanBarcode={true}
-          onReadCode={handleQRRead}
-          showFrame={true}
-          laserColor="green"
-          frameColor="white"
+          isActive={true}
+          device={cameraDevice}
+          codeScanner={codeScanner}
         />
       ) : (
         <View style={styles.camera}>
